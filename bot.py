@@ -1,19 +1,23 @@
 from telebot import types
-from weather_parser import info_dm
 from dbase import create_connection, execute_query, execute_read_query
 from telebot.types import ReplyKeyboardMarkup, ReplyKeyboardRemove, KeyboardButton, InlineKeyboardButton, InlineKeyboardMarkup
 import re
-
 import telebot
-bot = telebot.TeleBot("5644371123:AAERZpN6VG5xijGF2CZUvr2DjY97w7gLxko")
 
-@bot.message_handler(commands=['start', 'help'])
-def send_welcome(message):
+
+def keyboard_inline():
 	button1 = InlineKeyboardButton(text='Создать рассылку', callback_data='sub_weather')
 	button2 = InlineKeyboardButton(text='Мои рассылки', callback_data='my_weather')
 	button3 = InlineKeyboardButton(text='Удалить рассылку', callback_data='delete_weather')
 	keyboard_inline = InlineKeyboardMarkup().row(button1).row(button2).row(button3)
-	bot.send_message(message.chat.id, "Привет, бот позволяет создать, посмотреть или удалить рассылки на погоду.\nВыбери что ты хочешь сделать:", reply_markup=keyboard_inline)
+	return keyboard_inline
+
+
+bot = telebot.TeleBot("5644371123:AAERZpN6VG5xijGF2CZUvr2DjY97w7gLxko")
+
+@bot.message_handler(commands=['start', 'help'])
+def send_welcome(message):
+	bot.send_message(message.chat.id, "Привет, бот позволяет создать, посмотреть или удалить рассылки на погоду.\nВыбери что ты хочешь сделать:", reply_markup=keyboard_inline())
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'sub_weather')
@@ -39,8 +43,6 @@ def my_weather(call):
 				day = 'сегодня'
 			elif value[4] == 'tomorrow':
 				day = 'завтра'
-			elif value[4] == '3days':
-				day = '3 дня'
 			subs_weather_str += f"№{str(value[0])}, {str(value[2])}, {day}, {str(value[5])}\n"
 		bot.send_message(call.message.chat.id, subs_weather_str)
 
@@ -59,18 +61,16 @@ def delete_weather(call):
 				day = 'сегодня'
 			elif value[4] == 'tomorrow':
 				day = 'завтра'
-			elif value[4] == '3days':
-				day = '3 дня'
 			subs_weather_str += f"№{str(value[0])}, {str(value[2])}, {day}, {str(value[5])}\n"
-			subs_weather_str += f"\nУкажи номер рассылки, которую необходимо удалить:"
+		subs_weather_str += f"\nУкажи номер рассылки, которую необходимо удалить:"
 		msg = bot.send_message(call.message.chat.id, subs_weather_str)
 		bot.register_next_step_handler(msg, delete_weather_sql)
 
-# def delete_weather_sql(message):
-# 	connection = create_connection("C:\Soft\Projects\PersonalWeatherBot\PWB_DB.sqlite")
-# 	request_insert_user_id = f"DELETE * FROM subs_weather WHERE num='{message.text}' and id_user='{message.use}';"
-# 	insert_user_id = execute_query(connection, request_insert_user_id)
-
+def delete_weather_sql(message):
+	connection = create_connection("C:\Soft\Projects\PersonalWeatherBot\PWB_DB.sqlite")
+	request_insert_user_id = f"DELETE FROM subs_weather WHERE num={message.text} and id_user='{message.from_user.id}';"
+	insert_user_id = execute_query(connection, request_insert_user_id)
+	bot.send_message(message.chat.id, "Подписка удалена.", reply_markup=keyboard_inline())
 
 
 
@@ -83,9 +83,8 @@ def add_city(message, user_info, quantity_try):
 		user_info.append(city[0][4])
 		button1 = KeyboardButton('На сегодня')
 		button2 = KeyboardButton('На завтра')
-		button3 = KeyboardButton('На 3 дня')
-		keyboard = ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True).add(button1, button2, button3)
-		msg = bot.send_message(message.chat.id, "Выбери формат. Бот может прислать погоду на сегодня, на завтра или на 3 ближайших дня", reply_markup=keyboard)
+		keyboard = ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True).add(button1, button2)
+		msg = bot.send_message(message.chat.id, "Выбери формат. Бот может прислать погоду на сегодня или на завтра", reply_markup=keyboard)
 		bot.register_next_step_handler(msg, add_format, user_info, quantity_try)
 	elif len(city)>1:
 		city_name = str(message.text).title()
@@ -101,7 +100,7 @@ def add_city(message, user_info, quantity_try):
 			msg = bot.send_message(message.chat.id, "Напишите свой город")
 			bot.register_next_step_handler(msg, add_city, user_info, quantity_try)
 		else:
-			bot.send_message(message.chat.id, "Ты ошибся в заполнении, начни заново, выбери что ты хочешь, выбери /sub_weather или /unsubs_weather")
+			bot.send_message(message.chat.id, "Ты ошибся в заполнении, начни заново",reply_markup=keyboard_inline())
 
 
 def check_city(message, user_info, quantity_try, city_name):
@@ -113,9 +112,8 @@ def check_city(message, user_info, quantity_try, city_name):
 		user_info.append(city[0][4])
 		button1 = KeyboardButton('На сегодня')
 		button2 = KeyboardButton('На завтра')
-		button3 = KeyboardButton('На 3 дня')
-		keyboard = ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True).add(button1, button2, button3)
-		msg = bot.send_message(message.chat.id, "Выбери формат. Бот может прислать погоду на сегодня, на завтра или на 3 ближайших дня", reply_markup=keyboard)
+		keyboard = ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True).add(button1, button2)
+		msg = bot.send_message(message.chat.id, "Выбери формат. Бот может прислать погоду на сегодня или на завтра.", reply_markup=keyboard)
 		bot.register_next_step_handler(msg, add_format, user_info, quantity_try)
 	else:
 		if quantity_try < 5:
@@ -124,35 +122,30 @@ def check_city(message, user_info, quantity_try, city_name):
 			msg = bot.send_message(message.chat.id, "Напишите свой город")
 			bot.register_next_step_handler(msg, add_city, user_info, quantity_try)
 		else:
-			bot.send_message(message.chat.id, "Ты ошибся в заполнении, начни заново, выбери что ты хочешь, выбери /sub_weather или /unsubs_weather")
+			bot.send_message(message.chat.id, "Ты ошибся в заполнении, начни заново.", reply_markup=keyboard_inline())
 
 
 
 def add_format(message, user_info, quantity_try):
 	if message.text == 'На сегодня':
 		user_info.append('today')
-		msg = bot.send_message(message.chat.id, "Укажите время в формате ЧЧ:ММ", reply_markup=ReplyKeyboardRemove())
+		msg = bot.send_message(message.chat.id, "Укажите время в формате ЧЧ:ММ. Например 08:05 или 21:30", reply_markup=ReplyKeyboardRemove())
 		bot.register_next_step_handler(msg, add_time, user_info, quantity_try)
 	elif message.text == 'На завтра':
 		user_info.append('tomorrow')
-		msg = bot.send_message(message.chat.id, "Укажите время в формате ЧЧ:ММ", reply_markup=ReplyKeyboardRemove())
-		bot.register_next_step_handler(msg, add_time, user_info,quantity_try)
-	elif message.text == 'На 3 дня':
-		user_info.append('3days')
-		msg = bot.send_message(message.chat.id, "Укажите время в формате ЧЧ:ММ", reply_markup=ReplyKeyboardRemove())
+		msg = bot.send_message(message.chat.id, "Укажите время в формате ЧЧ:ММ. Например 08:05 или 21:30", reply_markup=ReplyKeyboardRemove())
 		bot.register_next_step_handler(msg, add_time, user_info, quantity_try)
 	else:
 		if quantity_try < 5:
 			quantity_try+=1
 			button1 = KeyboardButton('На сегодня')
 			button2 = KeyboardButton('На завтра')
-			button3 = KeyboardButton('На 3 дня')
-			keyboard = ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True).add(button1, button2, button3)
+			keyboard = ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True).add(button1, button2)
 			bot.send_message(message.chat.id, "ОШИБКА: укажите правильный формат")
-			msg = bot.send_message(message.chat.id, "Выбери формат. Бот может прислать погоду на сегодня, на завтра или на 3 ближайших дня", reply_markup=keyboard)
+			msg = bot.send_message(message.chat.id, "Выбери формат. Бот может прислать погоду на сегодня или на завтра.", reply_markup=keyboard)
 			bot.register_next_step_handler(msg, add_format, user_info, quantity_try)
 		else:
-			bot.send_message(message.chat.id, "Ты ошибся в заполнении, начни заново, выбери что ты хочешь, выбери /sub_weather или /unsubs_weather")
+			bot.send_message(message.chat.id, "Ты ошибся в заполнении, начни заново.", reply_markup=keyboard_inline())
 
 
 def add_time(message, user_info, quantity_try):
@@ -161,15 +154,15 @@ def add_time(message, user_info, quantity_try):
 		connection = create_connection("C:\Soft\Projects\PersonalWeatherBot\PWB_DB.sqlite")
 		request_insert_user_id = f"INSERT INTO subs_weather (id_user, city_weather, link, format, time) VALUES ('{user_info[0]}','{user_info[1]}','{user_info[2]}','{user_info[3]}','{user_info[4]}');"
 		insert_user_id = execute_query(connection, request_insert_user_id)
-		bot.send_message(message.chat.id, "Ваша подписака добавлена в БД.\nДля перехода в главное меню наберите /start")
+		bot.send_message(message.chat.id, "Ваша подписака добавлена в БД.", reply_markup=keyboard_inline())
 	else:
 		if quantity_try < 5:
 			quantity_try+=1
 			bot.send_message(message.chat.id, "ОШИБКА: укажите правильный формат времени")
-			msg = bot.send_message(message.chat.id, "Укажите время в формате ЧЧ:ММ")
+			msg = bot.send_message(message.chat.id, "Укажите время в формате ЧЧ:ММ. Например 08:05 или 21:30")
 			bot.register_next_step_handler(msg, add_time, user_info, quantity_try)
 		else:
-			bot.send_message(message.chat.id,"Ты ошибся в заполнении, начни заново, выбери что ты хочешь, выбери /sub_weather или /unsubs_weather")
+			bot.send_message(message.chat.id,"Ты ошибся в заполнении, начни заново.", reply_markup=keyboard_inline())
 
 bot.infinity_polling()
 
