@@ -1,4 +1,3 @@
-from telebot import types
 from dbase import create_connection, execute_query, execute_read_query
 from telebot.types import ReplyKeyboardMarkup, ReplyKeyboardRemove, KeyboardButton, InlineKeyboardButton, InlineKeyboardMarkup
 import re
@@ -164,5 +163,9 @@ def add_time(message, user_info, quantity_try):
 		else:
 			bot.send_message(message.chat.id,"Ты ошибся в заполнении, начни заново.", reply_markup=keyboard_inline())
 
-bot.infinity_polling()
+
+
+if __name__ == '__main__':
+	bot.infinity_polling()
+
 
