@@ -5,6 +5,14 @@ from dbase import create_connection, execute_read_query
 
 
 def info_weather():
+    """
+    Функция формирует запрос в БД по текущему времени. Если в БД имеются значения,
+    передает их в нужную функцию, для формирования данных о погоде.
+
+    :return: Словарь с данными о погоде если в БД имеются значения.
+             None в случае если значений в БД нет
+    """
+
     current_time = f'{str(datetime.now().hour)}:{str(datetime.now().minute)}'
     connection = create_connection("C:\Soft\Projects\PersonalWeatherBot\PWB_DB.sqlite")
     select_value_db = f"select * from subs_weather where time='{current_time}';"
@@ -22,6 +30,12 @@ def info_weather():
 
 
 def parser_today(values:tuple):
+    """
+    Парсит страницу Gismeteo на основе параметров полученных из функции 'info_weather'
+
+    :return: Словарь с данными о погоде если в БД имеются значения.
+
+    """
     headers = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36"}
     link = f'{values[3]}'
     html_doc = requests.get(link, headers=headers)
@@ -35,12 +49,19 @@ def parser_today(values:tuple):
     wind_list = [int(i.text) for i in wind[16:]]
     wind_max = max(wind_list)
     temp_min_max = value_today.find_all('span', class_='unit unit_temperature_c')
-    day = value_today.find_all('div', class_='date date-1')
+    day = value_today.find('div', class_='tab-content')
+    day_text = day.contents[0].text
     condition = value_today.attrs['data-text']
-    weather_dict.update({'t_max': temp_min_max[1].text, 't_min': temp_min_max[0].text, 'day': day[0].text, 'format': 'Завтра','condition': condition, 'humidity_average': humidity_average, 'wind_max': wind_max})
+    weather_dict.update({'t_max': temp_min_max[1].text, 't_min': temp_min_max[0].text, 'day': day_text, 'format': 'Завтра','condition': condition, 'humidity_average': humidity_average, 'wind_max': wind_max})
     return weather_dict
 
 def parser_tomorrow(values:tuple):
+    """
+    Парсит страницу Gismeteo на основе параметров полученных из функции 'info_weather'
+
+    :return: Словарь с данными о погоде если в БД имеются значения.
+
+    """
     headers = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36"}
     link = f'{values[3]}{values[4]}'
     html_doc = requests.get(link, headers=headers)
@@ -54,9 +75,8 @@ def parser_tomorrow(values:tuple):
     wind_list = [int(i.text) for i in wind[16:]]
     wind_max = max(wind_list)
     temp_min_max = value_tomorrow.find_all('span', class_='unit unit_temperature_c')
-    day = value_tomorrow.find_all('div', class_='date date-2')
+    day = value_tomorrow.find('div', class_='tab-content')
+    day_text = day.contents[0].text
     condition = value_tomorrow.attrs['data-text']
-    weather_dict.update({'t_max': temp_min_max[1].text, 't_min':temp_min_max[0].text, 'day':day[0].text, 'format':'Завтра', 'condition':condition, 'humidity_average':humidity_average, 'wind_max':wind_max})
+    weather_dict.update({'t_max': temp_min_max[1].text, 't_min':temp_min_max[0].text, 'day':day_text, 'format':'Завтра', 'condition':condition, 'humidity_average':humidity_average, 'wind_max':wind_max})
     return weather_dict
-
-info_weather()

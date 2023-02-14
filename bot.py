@@ -1,10 +1,17 @@
+import telebot
 from dbase import create_connection, execute_query, execute_read_query
 from telebot.types import ReplyKeyboardMarkup, ReplyKeyboardRemove, KeyboardButton, InlineKeyboardButton, InlineKeyboardMarkup
 import re
-import telebot
+import time
+from weather_parser import info_weather
+import threading
 
 
 def keyboard_inline():
+	"""
+	Функция для создания InLine клавиатуры.
+	Вынесена для уменьшения дублирования кода
+	"""
 	button1 = InlineKeyboardButton(text='Создать рассылку', callback_data='sub_weather')
 	button2 = InlineKeyboardButton(text='Мои рассылки', callback_data='my_weather')
 	button3 = InlineKeyboardButton(text='Удалить рассылку', callback_data='delete_weather')
@@ -16,11 +23,19 @@ bot = telebot.TeleBot("5644371123:AAERZpN6VG5xijGF2CZUvr2DjY97w7gLxko")
 
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
+	"""
+	Функция приветствия, передает для выбора InLine клавиатуру
+	"""
 	bot.send_message(message.chat.id, "Привет, бот позволяет создать, посмотреть или удалить рассылки на погоду.\nВыбери что ты хочешь сделать:", reply_markup=keyboard_inline())
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'sub_weather')
 def sub_weather(call):
+	"""
+	Обрабатывает нажатие команды 'sub_weather' InLine клавиатуры.
+	Запрашивает данные для добавления в БД. Создает счтчик ошибок.
+	Создает список 'user_info' и добавляет в него ID пользователя.
+	"""
 	user_info = []
 	quantity_try = 0
 	user_info.append(call.from_user.id)
@@ -29,6 +44,10 @@ def sub_weather(call):
 
 @bot.callback_query_handler(func=lambda call: call.data == 'my_weather')
 def my_weather(call):
+	"""
+	Обрабатывает нажатие команды 'my_weather' InLine клавиатуры.
+	Отображает текущие значения в БД для ID пользователя.
+	"""
 	connection = create_connection("C:\Soft\Projects\PersonalWeatherBot\PWB_DB.sqlite")
 	select_value = f"select * from subs_weather where id_user={str(call.from_user.id)};"
 	subs_weather = execute_read_query(connection, select_value)
@@ -47,6 +66,11 @@ def my_weather(call):
 
 @bot.callback_query_handler(func=lambda call: call.data == 'delete_weather')
 def delete_weather(call):
+	"""
+	Обрабатывает нажатие команды 'delete_weather' InLine клавиатуры.
+	Отображает текущие значения в БД для ID пользователя.
+	Запрашивает данные для удаления значений из БД.
+	"""
 	connection = create_connection("C:\Soft\Projects\PersonalWeatherBot\PWB_DB.sqlite")
 	select_value = f"select * from subs_weather where id_user={str(call.from_user.id)};"
 	subs_weather = execute_read_query(connection, select_value)
@@ -66,6 +90,9 @@ def delete_weather(call):
 		bot.register_next_step_handler(msg, delete_weather_sql)
 
 def delete_weather_sql(message):
+	"""
+	Отправляет запрос в БД для удаления записи
+	"""
 	connection = create_connection("C:\Soft\Projects\PersonalWeatherBot\PWB_DB.sqlite")
 	request_insert_user_id = f"DELETE FROM subs_weather WHERE num={message.text} and id_user='{message.from_user.id}';"
 	insert_user_id = execute_query(connection, request_insert_user_id)
@@ -74,6 +101,14 @@ def delete_weather_sql(message):
 
 
 def add_city(message, user_info, quantity_try):
+	"""
+	:param user_info: Список. Хранит данные полученные от пользователя до добавления их в БД
+	:param quantity_try: Счетчик ввода неверных значений для сброса цепочки запросов.
+
+	Запрашивает данные о городе в БД. Добавляет название города и ссылку в 'user_info'.
+	Передает клавиатуру для выбора формата погоды.
+	Если городов несколько, отображает их пользователю и вызывает функцию 'check_city'.
+	"""
 	connection = create_connection("C:\Soft\Projects\PersonalWeatherBot\PWB_DB.sqlite")
 	select_city = f"select * from cities where city='{str(message.text).title()}';"
 	city = execute_read_query(connection, select_city)
@@ -103,6 +138,14 @@ def add_city(message, user_info, quantity_try):
 
 
 def check_city(message, user_info, quantity_try, city_name):
+	"""
+	:param user_info: Список. Хранит данные полученные от пользователя до добавления их в БД
+	:param quantity_try: Счетчик ввода неверных значений для сброса цепочки запросов.
+	:param city_name: Название города для формирования запроса в БД
+
+	Делает запрос в БД по номеру указанному пользователем и значениею из параметра 'city_name'.
+	Добавляет необходимый город и ссылку в 'user_info'. Передает клавиатуру для выбора формата погоды.
+	"""
 	connection = create_connection("C:\Soft\Projects\PersonalWeatherBot\PWB_DB.sqlite")
 	select_city = f"select * from cities where number='{message.text}' and city='{city_name}';"
 	city = execute_read_query(connection, select_city)
@@ -126,6 +169,13 @@ def check_city(message, user_info, quantity_try, city_name):
 
 
 def add_format(message, user_info, quantity_try):
+	"""
+	:param user_info: Список. Хранит данные полученные от пользователя до добавления их в БД
+	:param quantity_try: Счетчик ввода неверных значений для сброса цепочки запросов.
+
+	Добавляет выбранный пользователем формат погоды в 'user_info'.
+	Запрашивает информацию о времени у пользователя.
+	"""
 	if message.text == 'На сегодня':
 		user_info.append('today')
 		msg = bot.send_message(message.chat.id, "Укажите время в формате ЧЧ:ММ. Например 08:05 или 21:30", reply_markup=ReplyKeyboardRemove())
@@ -148,6 +198,13 @@ def add_format(message, user_info, quantity_try):
 
 
 def add_time(message, user_info, quantity_try):
+	"""
+	:param user_info: Список. Хранит данные полученные от пользователя до добавления их в БД
+	:param quantity_try: Счетчик ввода неверных значений для сброса цепочки запросов.
+
+	Свряет введеное время с регулярным выражением. Добавляет значение в 'user_info'.
+	На основе файла 'user_info' формирует и отправляет запрос на дбавление записи в БД.
+	"""
 	if re.search(r'^(([0,1][0-9])|(2[0-3])):[0-5][0-9]$', message.text) != None:
 		user_info.append(message.text)
 		connection = create_connection("C:\Soft\Projects\PersonalWeatherBot\PWB_DB.sqlite")
@@ -163,9 +220,52 @@ def add_time(message, user_info, quantity_try):
 		else:
 			bot.send_message(message.chat.id,"Ты ошибся в заполнении, начни заново.", reply_markup=keyboard_inline())
 
+class Second(threading.Thread):
+	"""
+	Класс для создания отдельного потока для бесконечного цикла рассылки.
+	"""
+	def __init__(self):
+		threading.Thread.__init__(self)
+		self.daemon = True
+		self.start()
+
+	def run(self):
+		"""
+		Цикл рассылки. 1 раз в 60 сек. вызывает функцию 'info_weather',
+		которая возвращает словарь, для формирования сообщения о погоде пользователю.
+		"""
+		while True:
+			print('while')
+			time.sleep(60)
+			weather_dict = info_weather()
+			if weather_dict != None:
+				try:
+					for x in weather_dict:
+						msg = f"Прогноз на *{x['day']}*, *{x['city']}*\n\n{x['condition']}\nТемпература воздуха от *{x['t_min']}* до *{x['t_max']}*\nСредняя влажность воздуха: *{x['humidity_average']}*\nСкорость ветра до *{x['wind_max']}* м/с"
+						bot.send_message(x['user_id'], msg, parse_mode="Markdown")
+				except Exception: 'Не найден ID'
+
+
+class First(threading.Thread):
+	"""
+	Класс для создания отдельного потока,
+	для прослушивания сообщений от пользователя.
+	"""
+	def __init__(self):
+		threading.Thread.__init__(self)
+		self.daemon = True
+		self.start()
+
+	def run(self):
+		"""
+		Функция прослушивания сообщений от пользователя.
+		"""
+		bot.infinity_polling()
 
 
 if __name__ == '__main__':
-	bot.infinity_polling()
-
+	First()
+	Second()
+	while True:
+		pass
 
